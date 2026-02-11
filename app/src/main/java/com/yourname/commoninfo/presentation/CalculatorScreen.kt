@@ -1,5 +1,6 @@
 package com.yourname.commoninfo.presentation
 
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -8,12 +9,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.flow.collectLatest
+
 
 @Composable
 fun CalculatorScreen(
     vm: CalculatorViewModel = viewModel()
 ) {
     val display by vm.display.collectAsState()
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        vm.events.collectLatest { event ->
+            when (event) {
+                is CalculatorViewModel.UiEvent.Copy -> copyToClipboard(context, event.text)
+                is CalculatorViewModel.UiEvent.Share -> shareText(context, event.text)
+
+            }
+        }
+    }
+
+
 
     Column(
         modifier = Modifier
@@ -42,6 +62,14 @@ fun CalculatorScreen(
                     maxLines = 2
                 )
             }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            ActionButton("Copy", Modifier.weight(1f)) { vm.onCopy() }
+            ActionButton("Share", Modifier.weight(1f)) { vm.onShare() }
         }
 
         // Keypad (adaptive grid via weights)
@@ -83,6 +111,21 @@ fun CalculatorScreen(
 }
 
 @Composable
+private fun ActionButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large
+    ) {
+        Text(text = text, style = MaterialTheme.typography.titleMedium)
+    }
+}
+
+@Composable
 private fun DigitButton(d: Char, modifier: Modifier, vm: CalculatorViewModel) {
     CalcButton(text = d.toString(), modifier = modifier) {
         vm.onAction(CalcAction.Digit(d))
@@ -103,4 +146,16 @@ private fun CalcButton(
     ) {
         Text(text = text, style = MaterialTheme.typography.titleLarge)
     }
+}
+private fun copyToClipboard(context: Context, text: String) {
+    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    cm.setPrimaryClip(ClipData.newPlainText("Result", text))
+}
+
+private fun shareText(context: Context, text: String) {
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, text)
+    }
+    context.startActivity(Intent.createChooser(intent, "Share result"))
 }

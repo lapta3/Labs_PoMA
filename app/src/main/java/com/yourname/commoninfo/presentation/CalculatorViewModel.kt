@@ -2,9 +2,11 @@ package com.yourname.commoninfo.presentation
 
 import androidx.lifecycle.ViewModel
 import com.yourname.commoninfo.domain.CalculatorEngine
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 
 class CalculatorViewModel : ViewModel() {
 
@@ -12,6 +14,9 @@ class CalculatorViewModel : ViewModel() {
 
     private val _display = MutableStateFlow(engine.getDisplay())
     val display: StateFlow<String> = _display.asStateFlow()
+
+    private val eventsChannel = Channel<UiEvent>(Channel.BUFFERED)
+    val events = eventsChannel.receiveAsFlow()
 
     fun onAction(action: CalcAction) {
         when (action) {
@@ -27,6 +32,19 @@ class CalculatorViewModel : ViewModel() {
             CalcAction.Equals -> engine.onEquals()
         }
         _display.value = engine.getDisplay()
+    }
+
+    fun onCopy() {
+        eventsChannel.trySend(UiEvent.Copy(_display.value))
+    }
+
+    fun onShare() {
+        eventsChannel.trySend(UiEvent.Share(_display.value))
+    }
+
+    sealed interface UiEvent {
+        data class Copy(val text: String) : UiEvent
+        data class Share(val text: String) : UiEvent
     }
 }
 
